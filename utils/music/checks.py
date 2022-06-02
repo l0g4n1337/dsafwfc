@@ -7,17 +7,21 @@ from .errors import NoVoice, NoPlayer, NoSource, NotRequester, NotDJorStaff, Dif
     MissingVoicePerms
 from .models import LavalinkPlayer, YTDLPlayer
 
+if TYPE_CHECKING:
+    from ..others import CustomContext
 
-async def check_requester_channel(ctx):
+
+async def check_requester_channel(ctx: CustomContext):
 
     guild_data = await ctx.bot.db.get_data(ctx.guild.id, db_name="guilds")
 
-    if guild_data['player_controller']["channel"] == ctx.channel.id:
-        try:
-            await ctx.message.delete()
-        except:
-            pass
-        raise GenericError("Non utilizzare i comandi in questo canale!", delete=30)
+    try:
+        channel_id = ctx.channel.parent.id
+    except AttributeError:
+        channel_id = ctx.channel.id
+
+    if guild_data['player_controller']["channel"] == str(channel_id):
+        raise GenericError("**Non utilizzare i comandi in questo canale!**", self_delete=True, delete_original=15)
 
     return True
 
