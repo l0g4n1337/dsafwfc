@@ -27,23 +27,21 @@ class CustomContext(commands.Context):
         return
 
     async def send(self, *args, **kwargs):
+
         try:
             kwargs.pop("ephemeral")
         except:
             pass
-        if self.channel == self.message.channel:
-            kwargs['mention_author'] = False
-            return await super().reply(*args, **kwargs)
+
         return await super().send(*args, **kwargs)
 
     async def reply(self, *args, **kwargs):
+
         try:
             kwargs.pop("ephemeral")
         except:
             pass
-        if self.channel != self.message.channel or self.author.bot:
-            return await super().send(*args, **kwargs)
-        kwargs['mention_author'] = False
+
         return await super().reply(*args, **kwargs)
 
 
@@ -71,9 +69,10 @@ def sync_message(bot: BotCore):
            f"cacciandomi via dal server per poi riaggiungimi di nuovo attraverso questo ` [`link`]({bot_invite})..."
 
 
-async def check_cmd(cmd, inter: Union[disnake.Interaction, disnake.ModalInteraction]):
+async def check_cmd(cmd, inter: Union[disnake.Interaction, disnake.ModalInteraction, CustomContext]):
 
     try:
+        inter.application_command = cmd
         await cmd._max_concurrency.acquire(inter)
     except AttributeError:
         pass
@@ -84,10 +83,26 @@ async def check_cmd(cmd, inter: Union[disnake.Interaction, disnake.ModalInteract
         if retry_after:
             raise commands.CommandOnCooldown(cooldown=bucket, retry_after=retry_after, type=cmd._buckets.type)
 
+    if isinstance(inter, CustomContext):
+        await cmd.can_run(inter)
+        return
+
     for command_check in cmd.checks:
         c = (await command_check(inter)) if iscoroutinefunction(command_check) else command_check(inter)
         if not c:
             raise commands.CheckFailure()
+
+    try:
+        chkcmd = list(cmd.children.values())[0]
+    except (AttributeError, IndexError):
+        try:
+            chkcmd = inter.bot.get_slash_command(cmd.qualified_name.split()[-2])
+        except IndexError:
+            chkcmd = None
+
+    if chkcmd:
+        await check_cmd(chkcmd, inter)
+
 
 
 async def send_message(
